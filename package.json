@@ -1,0 +1,24 @@
+{
+  "name": "bestbites",
+  "version": "1.0.0",
+  "description": "web site for restaurant",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "fs": "^0.0.1-security",
+    "http": "^0.0.1-security",
+    "mongoose": "^8.20.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.10",
+    "path": "^0.12.7",
+    "socket.io": "^4.8.1"
+  }
+}
