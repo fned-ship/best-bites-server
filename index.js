@@ -49,7 +49,9 @@ let signupRoute=require('./routes/signupRoute');
 let activateRouter=require('./routes/activateRouter');
 let loginRouter=require('./routes/loginRouter');
 let resetRouter=require('./routes/resetRouter');
+let main=require("./routes/main")
 
+main(app);
 signupRoute(app,clientDomainName,emailUserName);
 activateRouter(app);
 loginRouter(app);

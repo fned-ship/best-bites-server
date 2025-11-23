@@ -19,6 +19,9 @@ const userSchema = new Schema({
   timestamps: true,
 });
 
-const User = mongoose.model('user', userSchema);
+userSchema.index({ email: 1 }); // Speeds up login queries by email
+userSchema.index({ role: 1, isActive: 1 });
+
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;

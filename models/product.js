@@ -1,20 +1,76 @@
 const mongoose = require('mongoose');
-
 const Schema = mongoose.Schema;
 
+const ingredientSchema = new Schema({
+  stock: {
+    type: Schema.Types.ObjectId, 
+    ref: 'Stock',
+    required: true 
+  },
+  quantity: {
+    type: Number, 
+    required: true,
+    min: 0
+  }
+}, { _id: false });
+
 const productSchema = new Schema({
-  name: { type: String , required: true },
-  type: { type: String , required: true },
-  price: { type: Number , required: true  },
-  imageSrc:{type :String , required:true },
-  rating : {type :Number , required : true  },
-  numOfCommands :{type :Number , required : true  },
-  ingredients: { type: [String] , default: [] },
-  id:{type:String, required: true },
-}, {
-  timestamps: true,
+  name: { 
+    type: String, 
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  category: {
+    type: String, 
+    required: true,
+    enum: ['appetizer', 'main_course', 'dessert', 'beverage', 'side_dish'],
+    index: true
+  },
+  price: { 
+    type: Number, 
+    required: true,
+    min: 0
+  },
+  image: {
+    type: String,
+    default: '/default-product.png'
+  },
+  rating: {
+    average: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5
+    },
+    count: {
+      type: Number,
+      default: 0
+    }
+  },
+  orderCount: {
+    type: Number,
+    default: 0
+  },
+  ingredients: {
+    type: [ingredientSchema],
+    default: []
+  },
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+}, { 
+  timestamps: true
 });
 
-const Product = mongoose.model('product', productSchema);
 
+productSchema.index({ category: 1, isAvailable: 1 });
+productSchema.index({ 'rating.average': -1 });
+productSchema.index({ orderCount: -1 });
+
+const Product = mongoose.model('Product', productSchema);
 module.exports = Product;
