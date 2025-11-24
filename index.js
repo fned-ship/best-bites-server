@@ -49,9 +49,15 @@ let signupRoute=require('./routes/signupRoute');
 let activateRouter=require('./routes/activateRouter');
 let loginRouter=require('./routes/loginRouter');
 let resetRouter=require('./routes/resetRouter');
-let main=require("./routes/main")
+let analyticsRouter=require("./routes/analyticsRouter");
+let orderRouter=require("./routes/orderRouter");
+let productRouter=require("./routes/productRouter");
+let stockRouter=require("./routes/stockRouter");
 
-main(app);
+stockRouter(app);
+productRouter(app);
+orderRouter(app);
+analyticsRouter(app);
 signupRoute(app,clientDomainName,emailUserName);
 activateRouter(app);
 loginRouter(app);
