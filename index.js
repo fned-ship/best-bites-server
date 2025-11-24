@@ -30,6 +30,7 @@ app.use(express.json()) ; // Parses incoming requests with JSON payloads.
 app.use(express.urlencoded({ extended: true })) // Parses incoming requests with URL-encoded payloads, supporting complex objects.
 app.use(cors())  //Allow all origins to access the API 
 app.use('/imagesProfile', express.static(path.join(__dirname, 'public/imagesProfile')));
+app.use('/products', express.static(path.join(__dirname, 'public/products')));
 
 
 
