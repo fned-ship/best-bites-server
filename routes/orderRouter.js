@@ -3,9 +3,226 @@ const Stock = require('../models/stock');
 const Product = require('../models/product');
 const Order = require('../models/order');
 const transporter = require('../mailer');
+const Chat=require("../models/chat")
 
 
 const orderRouter = (router) => {
+    router.get('/deliverer/available-orders', async (req, res) => {
+        try {
+            const { delivererId } = req.query;
+
+
+            // Validate deliverer exists and has correct role
+            const deliverer = await User.findById(delivererId);
+            if (!deliverer || deliverer.role !== 'delivery') {
+            return res.status(403).json({ 
+                error: 'Unauthorized. Deliverer access required' 
+            });
+            }
+
+            // Get orders that are ready and not assigned to any deliverer
+            const availableOrders = await Order.find({
+            status: 'ready',
+            deliverer: { $exists: false } // Not assigned to any deliverer yet
+            })
+            .populate('customer', 'firstName lastName number')
+            .populate('items.product')
+            .sort({ createdAt: 1 }); // Oldest first
+
+            res.json({
+            message: 'Available orders fetched successfully',
+            count: availableOrders.length,
+            orders: availableOrders
+            });
+
+        } catch (error) {
+            console.error('Error fetching available orders:', error);
+            res.status(500).json({ 
+            error: 'Failed to fetch available orders', 
+            details: error.message 
+            });
+        }
+    });
+    router.post('/deliverer/mark-delivered/:orderId', async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const { delivererId } = req.body;
+
+            // Find order assigned to this deliverer
+            const order = await Order.findOne({
+            _id: orderId,
+            deliverer: delivererId,
+            status: 'out_for_delivery'
+            });
+
+            if (!order) {
+            return res.status(404).json({ 
+                error: 'Order not found or not assigned to you' 
+            });
+            }
+
+            // Mark as delivered
+            order.status = 'delivered';
+            order.actualDeliveryTime = new Date();
+            await order.save();
+
+            // Emit socket event
+            const io = req.app.get('io');
+            io.emit('order:delivered', {
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            delivererId: delivererId,
+            deliveredAt: order.actualDeliveryTime
+            });
+
+            res.json({
+            message: 'Order marked as delivered',
+            order: order
+            });
+
+        } catch (error) {
+            console.error('Error marking order as delivered:', error);
+            res.status(500).json({ 
+            error: 'Failed to mark order as delivered', 
+            details: error.message 
+            });
+        }
+    });
+
+    router.get('/deliverer/my-orders/:delivererId', async (req, res) => {
+        try {
+            const { delivererId } = req.params;
+
+            // Get orders assigned to this deliverer
+            const myOrders = await Order.find({
+            deliverer: delivererId,
+            status: 'out_for_delivery'
+            })
+            .populate('customer', 'firstName lastName number')
+            .populate('items.product')
+            .sort({ createdAt: -1 });
+
+            res.json({
+            message: 'Your orders fetched successfully',
+            count: myOrders.length,
+            orders: myOrders
+            });
+
+        } catch (error) {
+            console.error('Error fetching deliverer orders:', error);
+            res.status(500).json({ 
+            error: 'Failed to fetch your orders', 
+            details: error.message 
+            });
+        }
+    });
+
+
+    router.post('/deliverer/take-order/:orderId', async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const { delivererId } = req.body;
+
+            // Validate deliverer
+            const deliverer = await User.findById(delivererId);
+            if (!deliverer || deliverer.role !== 'delivery') {
+            return res.status(403).json({ error: 'Unauthorized. Deliverer access required' });
+            }
+
+            // Find order and check if it's available
+            const order = await Order.findOne({
+            _id: orderId,
+            status: 'ready',
+            deliverer: { $exists: false }
+            }).populate('customer', 'firstName lastName number _id');
+
+            if (!order) {
+            return res.status(404).json({ 
+                error: 'Order not available. It may have been taken by another deliverer.' 
+            });
+            }
+
+            //chat
+            const chat = await Chat.create({ id:`${Date.now()}_${Math.random()}`, client_id:order.customer._id, delivery_id:delivererId, messages: [] });
+
+            // Assign order to deliverer    
+            order.deliverer = delivererId;
+            order.chatId=chat.id ;
+            order.status = 'out_for_delivery';
+            await order.save();
+
+            // Emit socket event to notify all deliverers
+            const io = req.app.get('io');
+            io.emit('order:taken', {
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            delivererId: delivererId,
+            delivererName: `${deliverer.firstName} ${deliverer.lastName}`
+            });
+
+            res.json({
+            message: 'Order taken successfully',
+            order: order
+            });
+
+        } catch (error) {
+            console.error('Error taking order:', error);
+            res.status(500).json({ 
+            error: 'Failed to take order', 
+            details: error.message 
+            });
+        }
+    });
+
+    router.post('/deliverer/release-order/:orderId', async (req, res) => {
+        try {
+            const { orderId } = req.params;
+            const { delivererId } = req.body;
+
+            // Find order assigned to this deliverer
+            const order = await Order.findOne({
+            _id: orderId,
+            deliverer: delivererId,
+            status: 'out_for_delivery'
+            });
+
+            if (!order) {
+            return res.status(404).json({ 
+                error: 'Order not found or not assigned to you' 
+            });
+            }
+
+            // Release order
+            order.deliverer = undefined;
+            order.status = 'ready';
+            order.chatId="";
+            await order.save();
+
+            // Emit socket event to notify all deliverers
+            const io = req.app.get('io');
+            io.emit('order:released', {
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            delivererId: delivererId
+            });
+
+            res.json({
+            message: 'Order released successfully',
+            order: order
+            });
+
+        } catch (error) {
+            console.error('Error releasing order:', error);
+            res.status(500).json({ 
+            error: 'Failed to release order', 
+            details: error.message 
+            });
+        }
+        });
+
+
+
+
     router.get('/orders/:orderId', async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -13,7 +230,7 @@ const orderRouter = (router) => {
         
 
         const order = await Order.findById(orderId)
-        .populate('customer', 'firstName lastName email phone')
+        .populate('customer', 'firstName lastName email number')
         .populate('items.product');
 
         if (!order) {
@@ -36,15 +253,9 @@ const orderRouter = (router) => {
 
     router.get('/orders', async (req, res) => {
     try {
-        const { adminId, status } = req.query;
+        const { status } = req.query;
 
        
-
-
-        const admin = await User.findById(adminId);
-        if (!admin || admin.role !== 'admin') {
-        return res.status(403).json({ error: 'Unauthorized. Admin access required' });
-        }
 
 
         const query = {};
@@ -63,7 +274,7 @@ const orderRouter = (router) => {
 
 
         const orders = await Order.find(query)
-        .populate('customer', 'firstName lastName email phone')
+        .populate('customer', 'firstName lastName email number')
         .populate('items.product')
         .sort({ createdAt: -1 });
 
@@ -95,7 +306,7 @@ const orderRouter = (router) => {
 
 
         const orders = await Order.find({ customer: customerId })
-        .populate('customer', 'firstName lastName email')
+        .populate('customer', 'firstName lastName email number')
         .populate('items.product')
         .sort({ createdAt: -1 });
 
@@ -144,7 +355,6 @@ const orderRouter = (router) => {
             specialInstructions: item.specialInstructions || ''
             }));
     
-    
             const newOrder = new Order({
             customer: customerId,
             items: orderItems,
@@ -175,13 +385,10 @@ const orderRouter = (router) => {
     router.patch('/orders/:orderId/status', async (req, res) => {
         try {
             const { orderId } = req.params;
-            const { status, adminId } = req.body;
+            const { status } = req.body;
     
     
-            const admin = await User.findById(adminId);
-            if (!admin || admin.role !== 'admin') {
-            return res.status(403).json({ error: 'Unauthorized. Admin access required' });
-            }
+            const admin = await User.findOne({role:'admin'});
     
     
             const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
@@ -201,6 +408,15 @@ const orderRouter = (router) => {
     
             if (status === 'ready' && previousStatus !== 'ready') {
             await processStockReduction(order, admin);
+            }
+
+            if(status=='ready'){
+                const io = req.app.get('io');
+                io.emit('order:released', {
+                orderId: order._id,
+                orderNumber: order.orderNumber,
+                delivererId: "null"
+                });
             }
     
             res.json({

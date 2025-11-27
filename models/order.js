@@ -26,6 +26,15 @@ const orderSchema = new Schema({
     required: true,
     index: true
   },
+  chatId: {
+    type: String, 
+    index: true
+  },
+  deliverer: {
+    type: Schema.Types.ObjectId, 
+    ref: 'User',
+    index: true
+  },
   items: {
     type: [orderItemSchema],
     validate: [arr => arr.length > 0, 'Order must have at least one item']
@@ -56,7 +65,7 @@ orderSchema.pre('save', async function(next) {
 
 orderSchema.index({ customer: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
-orderSchema.index({ orderNumber: 1 });
+// orderSchema.index({ orderNumber: 1 });
 
 
 

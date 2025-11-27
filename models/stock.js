@@ -53,7 +53,7 @@ stockSchema.virtual('status').get(function() {
   return 'in_stock';
 });
 
-stockSchema.index({ name: 1 });
+// stockSchema.index({ name: 1 });
 stockSchema.index({ category: 1 });
 
 

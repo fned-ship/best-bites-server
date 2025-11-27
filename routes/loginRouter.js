@@ -6,7 +6,7 @@ let loginRouter=(app)=>{
         const email= req.body.email ;
         const password=req.body.password ;
         
-        User.findOne({ email : email  }).select('-password -SecurityCode -_id')
+        User.findOne({ email : email  })
         .then(collection=>{
             if(!!collection){
                 bcrypt.compare(password , collection.password , function(err, result) {

@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { Server } = require("socket.io"); // live updates
 const path = require('path');
 const app = express();
+const Chat=require("./models/chat")
 
 //create server 
 
@@ -31,6 +32,8 @@ app.use(express.urlencoded({ extended: true })) // Parses incoming requests with
 app.use(cors())  //Allow all origins to access the API 
 app.use('/imagesProfile', express.static(path.join(__dirname, 'public/imagesProfile')));
 app.use('/products', express.static(path.join(__dirname, 'public/products')));
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/files', express.static(path.join(__dirname, 'public/files')));
 
 
 
@@ -54,6 +57,7 @@ let analyticsRouter=require("./routes/analyticsRouter");
 let orderRouter=require("./routes/orderRouter");
 let productRouter=require("./routes/productRouter");
 let stockRouter=require("./routes/stockRouter");
+let chat=require("./routes/chat")
 
 stockRouter(app);
 productRouter(app);
@@ -65,17 +69,65 @@ loginRouter(app);
 resetRouter(app,clientDomainName,emailUserName);
 
 //socket.io
-// const io = new Server(server, {
-//     cors: {
-//         origin: clientDomainName,
-//         methods: ["GET", "POST"],
-//     },  
-// });
+const io = new Server(server, {
+    cors: {
+        origin: clientDomainName,
+        methods: ["GET", "POST"],
+    },  
+});
+
+app.set('io', io);
+chat(app,io);
 
 // socket connection
-// io.on("connection", (socket) => {
-    
-// });
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Deliverer joins their room
+  socket.on('deliverer:join', (delivererId) => {
+    socket.join(`deliverer-${delivererId}`);
+    console.log(`Deliverer ${delivererId} joined room`);
+  });
+
+  // Deliverer leaves their room
+  socket.on('deliverer:leave', (delivererId) => {
+    socket.leave(`deliverer-${delivererId}`);
+    console.log(`Deliverer ${delivererId} left room`);
+  });
+
+
+    // Join room
+    socket.on("joinChat", (chatId) => {
+        socket.join(chatId);
+        console.log("User joined chat:", chatId);
+    });
+
+    // When client sends message
+    socket.on("sendMessage", async (data) => {
+        const { chatId, sender, text } = data;
+
+        const msg = {
+            sender,
+            text,
+            imagesFiles: [],
+            otherFiles: [],
+            timestamp: new Date() 
+        };
+
+        // Save in DB
+        await Chat.findOneAndUpdate(
+            { id: chatId },
+            { $push: { messages: msg } }
+        );
+
+        // Broadcast to everyone in room
+        io.to(chatId).emit("newMessage", msg);
+    });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 
 //listening to the port

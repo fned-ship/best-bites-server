@@ -27,7 +27,7 @@ const productSchema = new Schema({
   category: {
     type: String, 
     required: true,
-    enum: ['appetizer', 'main_course', 'dessert', 'beverage', 'side_dish'],
+    enum: ['pizza', 'burger', 'dessert', 'drink', 'taco','salad'],
     index: true
   },
   price: { 
