@@ -519,6 +519,122 @@ const orderRouter = (router) => {
             console.error('Error sending low stock alert email:', error);
         }
     }
+
+
+
+
+
+
+
+
+    router.get('/orders/recieved/:customerId', async (req, res) => {
+        try {
+            const { customerId } = req.params;
+
+            const customer = await User.findById(customerId);
+            if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+            }
+
+
+            const orders = await Order.find({ customer: customerId , status:"recieved" })
+            .populate('customer', 'firstName lastName email number')
+            .populate('items.product')
+            .sort({ createdAt: -1 });
+
+            res.json({
+            message: 'Orders fetched successfully',
+            orders
+            });
+
+        } catch (error) {
+            console.error('Error fetching customer orders:', error);
+            res.status(500).json({ error: 'Failed to fetch orders', details: error.message });
+        }
+    });
+
+
+    router.get('/orders/non-recieved/:customerId', async (req, res) => {
+        try {
+            const { customerId } = req.params;
+
+            const customer = await User.findById(customerId);
+            if (!customer) {
+            return res.status(404).json({ error: 'Customer not found' });
+            }
+
+
+            const orders = await Order.find({ customer: customerId , status:{ $in: ['confirmed','ready', 'out_for_delivery', 'delivered'] } })
+            .populate('customer', 'firstName lastName email number')
+            .populate('items.product')
+            .sort({ createdAt: -1 });
+
+            res.json({
+            message: 'Orders fetched successfully',
+            count: orders.length,
+            orders
+            });
+
+        } catch (error) {
+            console.error('Error fetching customer orders:', error);
+            res.status(500).json({ error: 'Failed to fetch orders', details: error.message });
+        }
+    });
+
+
+
+    router.get('/orders/most-ordered/:customerId', async (req, res) => {
+            try {
+                const { customerId } = req.params;
+        
+        
+                const orders = await Order.find({customer: customerId , status: "recieved"}).populate('items.product');
+        
+        
+                const productOrderCount = {};
+                let totalProductQuantity = 0;
+        
+                orders.forEach(order => {
+                order.items.forEach(item => {
+                    if (item.product) {
+                    const productId = item.product._id.toString();
+                    
+                    if (!productOrderCount[productId]) {
+                        productOrderCount[productId] = {
+                        product: item.product,
+                        orderCount: 0,
+                        totalQuantity: 0
+                        };
+                    }
+                    
+                    productOrderCount[productId].orderCount += 1;
+                    productOrderCount[productId].totalQuantity += item.quantity;
+                    totalProductQuantity += item.quantity;
+                    }
+                });
+            });
+        
+        
+                const productPercentages = Object.values(productOrderCount).map(product => ({
+                product: product.product,
+                orderCount: product.orderCount,
+                totalQuantity: product.totalQuantity,
+                percentage: totalProductQuantity > 0 
+                    ? Math.round((product.totalQuantity / totalProductQuantity) * 10000) / 100 
+                    : 0
+                })).sort((a, b) => b.percentage - a.percentage);
+        
+                res.json({
+                    totalOrders: orders.length,
+                    totalProductQuantity,
+                    productPercentages
+                });
+        
+            } catch (error) {
+                console.error('Error calculating product order percentage:', error);
+                res.status(500).json({ error: 'Failed to calculate product order percentage', details: error.message });
+            }
+    });
 }
 
 module.exports=orderRouter ;
