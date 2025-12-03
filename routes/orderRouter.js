@@ -262,7 +262,7 @@ const orderRouter = (router) => {
         
 
         if (status) {
-        const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
+        const validStatuses = ['confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
             error: 'Invalid status',
@@ -360,7 +360,7 @@ const orderRouter = (router) => {
             items: orderItems,
             deliveryAddress,
             customerNotes: customerNotes || '',
-            status: 'pending'
+            status: 'confirmed'
             });
     
             await newOrder.save();
@@ -391,7 +391,7 @@ const orderRouter = (router) => {
             const admin = await User.findOne({role:'admin'});
     
     
-            const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
+            const validStatuses = ['confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
             if (!validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status', validStatuses });
             }

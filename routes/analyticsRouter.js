@@ -21,7 +21,7 @@ const analyticsRouter=(router)=>{
             const dailyIncome = await Order.aggregate([
             {
                 $match: {
-                status: 'delivered',
+                status:{$in :['delivered','recieved']},
                 createdAt: { $gte: start, $lte: end }
                 }
             },
@@ -49,7 +49,7 @@ const analyticsRouter=(router)=>{
                 const dayEnd = new Date(day._id.year, day._id.month - 1, day._id.day + 1);
     
                 const orders = await Order.find({
-                status: 'delivered',
+                status: {$in :['delivered','recieved']},
                 createdAt: { $gte: dayStart, $lt: dayEnd }
                 }).populate('items.product');
     
@@ -106,7 +106,7 @@ const analyticsRouter=(router)=>{
     
     
             const orders = await Order.find({
-            status: 'delivered',
+            status: {$in :['delivered','recieved']},
             createdAt: { $gte: startDate, $lte: endDate }
             }).populate('items.product');
     
@@ -183,7 +183,7 @@ const analyticsRouter=(router)=>{
     
     
             const orders = await Order.find({
-            status: { $in: ['delivered', 'ready', 'out_for_delivery', 'preparing'] },
+            status: { $in: ['delivered','recieved' ,  'ready', 'out_for_delivery', 'preparing'] },
             createdAt: { $gte: startDate, $lte: endDate }
             }).populate('items.product');
     
