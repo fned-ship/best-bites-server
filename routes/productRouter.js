@@ -104,37 +104,70 @@ const productRouter=(router)=>{
         });
     
     
-        router.put('/products/:productId', async (req, res) => {
+    router.put('/products/:productId', upload.single('image'), async (req, res) => {
         try {
             const { productId } = req.params;
             const { adminId, ...updateData } = req.body;
-    
-    
+
+            // Validate admin
             const admin = await User.findById(adminId);
             if (!admin || admin.role !== 'admin') {
+            if (req.file) fs.unlinkSync(req.file.path);
             return res.status(403).json({ error: 'Unauthorized. Admin access required' });
             }
-    
+
+            // Parse ingredients if received as a JSON string
+            if (typeof updateData.ingredients === 'string') {
+            try {
+                updateData.ingredients = JSON.parse(updateData.ingredients);
+            } catch (err) {
+                if (req.file) fs.unlinkSync(req.file.path);
+                return res.status(400).json({ error: 'Invalid ingredients JSON format' });
+            }
+            }
+
+            // Fetch product
+            const product = await Product.findById(productId);
+            if (!product) {
+            if (req.file) fs.unlinkSync(req.file.path);
+            return res.status(404).json({ error: 'Product not found' });
+            }
+
+            // Handle image update
+            if (req.file) {
+            // Delete old image if not default
+            if (product.image && product.image !== '/products/default-product.png') {
+                const oldPath = path.join(__dirname, '../public', product.image);
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+
+            updateData.image = `/products/${req.file.filename}`;
+            }
+
+            // Update product
             const updatedProduct = await Product.findByIdAndUpdate(
             productId,
             updateData,
             { new: true, runValidators: true }
             );
-    
-            if (!updatedProduct) {
-            return res.status(404).json({ error: 'Product not found' });
-            }
-    
+
             res.json({
             message: 'Product updated successfully',
             product: updatedProduct
             });
-    
+
         } catch (error) {
             console.error('Error updating product:', error);
-            res.status(500).json({ error: 'Failed to update product', details: error.message });
+
+            if (req.file) fs.unlinkSync(req.file.path);
+
+            res.status(500).json({ 
+            error: 'Failed to update product', 
+            details: error.message 
+            });
         }
-        });
+    });
+
     
     
         router.delete('/products/:productId', async (req, res) => {
